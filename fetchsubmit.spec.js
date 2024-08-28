@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import axios from 'axios'; // Import axios for making HTTP requests
 const fs = require('fs');
 const csv = require('csv-parser');
 const { parse } = require('json2csv'); // Ensure you have installed this package
@@ -70,7 +71,7 @@ async function attemptLogin(page, username, password) {
 
  try {
           await Promise.race([
-            page.locator('div.col-md-12:has(span:has-text("Cnn_Example"))')
+            page.locator('div.col-md-12:has(span:has-text("cnn-example5"))')
                 .locator('button:has-text("Fetch")')
                 .click(),
             new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout exceeded for Fetch button')), 5000))
@@ -80,7 +81,7 @@ async function attemptLogin(page, username, password) {
           console.log(`'Fetch' button not clicked for user ${username}: ${error.message}`);
         }
 
-      	await page.goto(`http://10.11.51.201:8000/user/${username}/lab/tree/course101/Cnn_Example/cnn-example.ipynb`, { waitUntil: 'networkidle' });
+      	await page.goto(`http://10.11.51.201:8000/user/${username}/lab/tree/course101/cnn-example5/cnn-example5.ipynb`, { waitUntil: 'networkidle' });
       	      await page.waitForTimeout(3000);
         await page.getByText('Run', { exact: true }).click();
         
@@ -93,6 +94,10 @@ async function attemptLogin(page, username, password) {
 
         await page.getByText('Nbgrader', { exact: true }).click();
         await page.locator('#jp-mainmenu-nbgrader').getByText('Assignment List').click();
+        
+        //submit assignment click
+        await page.locator('div').filter({ hasText: /^cnn-example5course101Submit$/ }).locator('button').click();
+        console.log(`'Submit' button clicked for user ${username}.`);
         
         // Log out
         await page.getByText('File', { exact: true }).click();
@@ -153,6 +158,34 @@ async function processBatch(credentialsList, browser) {
   return successfulLoginCount;
 }
 
+// hit grader url after processing a batch
+async function hitAdditionalUrl() {
+console.log('started calling post grader')
+const FormData = require('form-data');
+let data = new FormData();
+data.append('course_name', 'course101');
+data.append('assignment_name', 'cnn-example5');
+
+let config = {
+  method: 'post',
+  maxBodyLength: Infinity,
+  url: 'http://10.11.51.201:5000/autograde',
+  headers: { 
+    ...data.getHeaders()
+  },
+  data : data
+};
+
+axios.request(config)
+.then((response) => {
+  console.log(JSON.stringify(response.data));
+})
+.catch((error) => {
+  console.log(error);
+});
+console.log('completed calling post grader api')
+}
+
 // Function to split an array into chunks
 function chunkArray(array, chunkSize) {
   const result = [];
@@ -165,17 +198,18 @@ function chunkArray(array, chunkSize) {
 test('login tests', async ({ browser }) => {
   console.time('Total Execution Time'); // Start the timer
   const credentialsList = await getCredentials('First50users.csv');
-  const batches = chunkArray(credentialsList, 1); // Split into batches of 1
+  const batches = chunkArray(credentialsList, 20); // Split into batches of 20
   let totalSuccessfulLoginCount = 0;
-
+ 
   for (const batch of batches) {
     console.log(`Processing batch of ${batch.length} users...`);
     const successfulLoginCount = await processBatch(batch, browser);
     totalSuccessfulLoginCount += successfulLoginCount;
     console.log(`Batch processed. Successful logins in this batch: ${successfulLoginCount}`);
+    // Hit additional URL with a separate browser instance after processing each batch
+ 	 await hitAdditionalUrl();
   }
 
   console.log(`Total successful logins: ${totalSuccessfulLoginCount}`);
   console.timeEnd('Total Execution Time'); // End the timer and log the duration
 });
-
