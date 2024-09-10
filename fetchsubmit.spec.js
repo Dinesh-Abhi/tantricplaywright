@@ -62,18 +62,18 @@ async function attemptLogin(page, username, password) {
 
     while (Date.now() - startTime < timeout) {
       nbgraderVisible = await page.getByText('Nbgrader', { exact: true }).isVisible({ timeout: 3000 }).catch(() => false);
-      
+
       if (nbgraderVisible) {
         console.log(`'Nbgrader' text visible for user ${username}.`);
-        
+
         await page.getByText('Nbgrader', { exact: true }).click();
         await page.locator('#jp-mainmenu-nbgrader').getByText('Assignment List').click();
 
- try {
+        try {
           await Promise.race([
             page.locator('div.col-md-12:has(span:has-text("cnn-example5"))')
-                .locator('button:has-text("Fetch")')
-                .click(),
+              .locator('button:has-text("Fetch")')
+              .click(),
             new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout exceeded for Fetch button')), 5000))
           ]);
           console.log(`'Fetch' button clicked for user ${username}.`);
@@ -81,28 +81,28 @@ async function attemptLogin(page, username, password) {
           console.log(`'Fetch' button not clicked for user ${username}: ${error.message}`);
         }
 
-      	await page.goto(`http://10.11.51.201:8000/user/${username}/lab/tree/course101/cnn-example5/cnn-example5.ipynb`, { waitUntil: 'networkidle' });
-      	      await page.waitForTimeout(3000);
+        await page.goto(`http://10.11.51.201:8000/user/${username}/lab/tree/course101/cnn-example5/cnn-example5.ipynb`, { waitUntil: 'networkidle' });
+        await page.waitForTimeout(3000);
         await page.getByText('Run', { exact: true }).click();
-        
+
         // Wait for and click 'Run All Cells' button
         await page.getByRole('menuitem', { name: 'Run All Cells', exact: true }).waitFor({ state: 'visible', timeout: 5000 });
         await page.getByRole('menuitem', { name: 'Run All Cells', exact: true }).click();
-        
+
         // Wait for and click 'Ok' button
         await page.getByRole('button', { name: 'Ok', exact: true }).click();
 
         await page.getByText('Nbgrader', { exact: true }).click();
         await page.locator('#jp-mainmenu-nbgrader').getByText('Assignment List').click();
-        
+
         //submit assignment click
         await page.locator('div').filter({ hasText: /^cnn-example5course101Submit$/ }).locator('button').click();
         console.log(`'Submit' button clicked for user ${username}.`);
-        
+
         // Log out
         await page.getByText('File', { exact: true }).click();
         await page.getByText('Log Out').nth(3).click();
-        
+
         return true; // Login succeeded
       }
 
@@ -154,36 +154,36 @@ async function processBatch(credentialsList, browser) {
     fs.appendFileSync('failed_users.csv', csv, 'utf8');
     console.log(`Failed users written to failed_users.csv`);
   }
-  
+
   return successfulLoginCount;
 }
 
 // hit grader url after processing a batch
 async function hitAdditionalUrl() {
-console.log('started calling post grader')
-const FormData = require('form-data');
-let data = new FormData();
-data.append('course_name', 'course101');
-data.append('assignment_name', 'cnn-example5');
+  console.log('started calling post grader')
+  const FormData = require('form-data');
+  let data = new FormData();
+  data.append('course_name', 'course101');
+  data.append('assignment_name', 'cnn-example5');
 
-let config = {
-  method: 'post',
-  maxBodyLength: Infinity,
-  url: 'http://10.11.51.201:5000/autograde',
-  headers: { 
-    ...data.getHeaders()
-  },
-  data : data
-};
+  let config = {
+    method: 'post',
+    maxBodyLength: Infinity,
+    url: 'http://10.11.51.201:5000/autograde',
+    headers: {
+      ...data.getHeaders()
+    },
+    data: data
+  };
 
-axios.request(config)
-.then((response) => {
-  console.log(JSON.stringify(response.data));
-})
-.catch((error) => {
-  console.log(error);
-});
-console.log('completed calling post grader api')
+  axios.request(config)
+    .then((response) => {
+      console.log(JSON.stringify(response.data));
+    })
+    .catch((error) => {
+      console.log(error);
+    });
+  console.log('completed calling post grader api')
 }
 
 // Function to split an array into chunks
@@ -200,14 +200,14 @@ test('login tests', async ({ browser }) => {
   const credentialsList = await getCredentials('First50users.csv');
   const batches = chunkArray(credentialsList, 20); // Split into batches of 20
   let totalSuccessfulLoginCount = 0;
- 
+
   for (const batch of batches) {
     console.log(`Processing batch of ${batch.length} users...`);
     const successfulLoginCount = await processBatch(batch, browser);
     totalSuccessfulLoginCount += successfulLoginCount;
     console.log(`Batch processed. Successful logins in this batch: ${successfulLoginCount}`);
     // Hit additional URL with a separate browser instance after processing each batch
- 	 await hitAdditionalUrl();
+    await hitAdditionalUrl();
   }
 
   console.log(`Total successful logins: ${totalSuccessfulLoginCount}`);
